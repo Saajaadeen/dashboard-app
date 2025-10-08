@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: supersecret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  adminer:
+    image: adminer
+    container_name: adminer
+    restart: always
+    ports:
+      - "8888:8080"
+    depends_on:
+      - postgres
+
+  # keycloak:
+  #   image: quay.io/keycloak/keycloak:25.0.6
+  #   container_name: keycloak
+  #   command: start-dev
+  #   restart: always
+  #   environment:
+  #     KC_DB: postgres
+  #     KC_DB_URL_HOST: postgres
+  #     KC_DB_URL_PORT: 5432
+  #     KC_DB_URL_DATABASE: keycloak
+  #     KC_DB_USERNAME: postgres
+  #     KC_DB_PASSWORD: supersecret
+  #     KEYCLOAK_ADMIN: admin
+  #     KEYCLOAK_ADMIN_PASSWORD: admin
+  #   ports:
+  #     - "5555:8080"
+  #   volumes:
+  #     - keycloak_data:/opt/keycloak/data
+  #   depends_on:
+  #     - postgres
+
+volumes:
+  pgdata:
+  keycloak_data:
