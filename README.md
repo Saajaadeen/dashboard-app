@@ -57,19 +57,14 @@ cd dashboard-app
 npm install
 ```
 
-3. Set up your environment variables
+3. Start docker container
 ```bash
-cp .env.example .env
+docker compose up
 ```
 
-Configure your `.env` file:
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/dashboard_db"
-SESSION_SECRET="your-secret-key-here"
-```
-
-4. Run database migrations
+4. Run database migrations (Docker must be running)
 ```bash
+npx prisma migrate reset
 npx prisma migrate dev
 ```
 
@@ -79,36 +74,6 @@ npm run dev
 ```
 
 Visit `http://localhost:3000` to see your app!
-
-## Project Structure
-
-```
-dashboard-app/
-├── app/
-│   ├── routes/
-│   │   ├── dashboard/
-│   │   │   ├── dashboard.tsx          # Main dashboard view
-│   │   │   ├── dashboardcreate.tsx    # Create new dashboard
-│   │   │   └── dashboardedit.tsx      # Edit existing dashboard
-│   │   └── card/
-│   │       ├── cardcreate.tsx         # Create new card
-│   │       └── cardedit.tsx           # Edit/delete card
-│   └── components/
-│       ├── forms/
-│       │   ├── DashboardSidebarForm.tsx
-│       │   └── DashboardDisplayForm.tsx
-│       ├── modals/
-│       │   ├── CardCreateModal.tsx
-│       │   └── CardEditModal.tsx
-│       └── icons/
-├── server/
-│   ├── card.queries.server.ts         # Card database queries
-│   ├── dashboard.queries.server.ts    # Dashboard database queries
-│   └── session.server.ts              # Auth & session management
-├── prisma/
-│   └── schema.prisma                  # Database schema
-└── package.json
-```
 
 ## Key Features Explained
 
@@ -129,21 +94,6 @@ dashboard-app/
 - Form validation for required fields
 - Delete confirmation checkbox for safety
 - Closes and redirects on successful submission
-
-## API Routes
-
-### Dashboards
-- `GET /dashboard` - View all dashboards and cards
-- `GET /dashboard/create` - Dashboard creation form
-- `POST /dashboard/create` - Create new dashboard
-- `GET /dashboard/:id/edit` - Dashboard edit form
-- `POST /dashboard/:id/edit` - Update or delete dashboard
-
-### Cards
-- `GET /dashboard/:dashboardId/card/create` - Card creation form
-- `POST /dashboard/:dashboardId/card/create` - Create new card
-- `GET /dashboard/:dashboardId/card/:cardId/edit` - Card edit form
-- `POST /dashboard/:dashboardId/card/:cardId/edit` - Update or delete card
 
 ## Development
 
