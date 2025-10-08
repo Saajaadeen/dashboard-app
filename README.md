@@ -75,26 +75,6 @@ npm run dev
 
 Visit `http://localhost:3000` to see your app!
 
-## Key Features Explained
-
-### Dashboard Sidebar
-- Groups dashboards by visibility (Private, Global, Public)
-- Shows most recent dashboards first
-- Hover to reveal edit button
-- Click any dashboard to view its cards
-
-### Card Grid
-- Compact, square cards with full-bleed images
-- Card name appears as overlay at bottom
-- "Add Card" button seamlessly integrated in grid
-- Supports up to 10 cards per row on large screens
-
-### Modal System
-- Create/Edit modals with glassmorphism design
-- Form validation for required fields
-- Delete confirmation checkbox for safety
-- Closes and redirects on successful submission
-
 ## Development
 
 ### Database Management
