@@ -3,7 +3,16 @@ import DashboardNavbarForm from "./DashboardNavbarForm";
 import DashboardSidebarForm from "./DashboardSidebarForm";
 import DashboardDisplayForm from "./DashboardDisplayForm";
 
-export default function DashboardForm({ user, notifications, userDashboards, cards, selectedDashboard }) {
+export default function DashboardForm({ 
+  user, 
+  notifications, 
+  privateDashboards, 
+  publicDashboards, 
+  globalDashboards, 
+  landingDashboards, 
+  cards, 
+  selectedDashboard }: any) {
+
   return (
     <div className="p-5 min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
       <header>
@@ -15,7 +24,13 @@ export default function DashboardForm({ user, notifications, userDashboards, car
 
       <div className="flex gap-6">
         <aside className="pt-5">
-          <DashboardSidebarForm userDashboards={userDashboards}/>
+          <DashboardSidebarForm
+            user={user}
+            privateBoard={privateDashboards}
+            publicBoard={publicDashboards}
+            globalBoard={globalDashboards}
+            landingBoard={landingDashboards}
+          />
         </aside>
 
         <main className="pt-5 w-full">

@@ -1,5 +1,5 @@
 import {
-    redirect,
+  redirect,
   useLoaderData,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
@@ -15,14 +15,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
   await requireUserId(request);
   const userId = await getUserId(request);
   const user = await getUserDetails(userId);
-
   return { user };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
-
-  const userId = formData.get("userId") as string | null;
+  const userId = formData.get("userId") as string;
+  const connectUser = formData.get("connectUser") === "true";
   const visibilityRaw = formData.get("visibility") as string;
   const visibility = JSON.parse(visibilityRaw) as string[];
   const permissionsRaw = formData.get("permissions") as string;
@@ -30,9 +29,12 @@ export async function action({ request }: ActionFunctionArgs) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
 
-  await createDashboard(userId, visibility, permissions, name, description);
-
-  return redirect("/dashboard");
+  try {
+    await createDashboard( userId, visibility, permissions, name, description, connectUser );
+    return redirect("/dashboard");
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "An error occurred creating the dashboard" };
+  }
 }
 
 export default function DashboardCreate() {

@@ -28,9 +28,30 @@ export async function updateLoginInfo(loginName: string, loginImgUrl: string) {
       id: "DEFAULT",
       loginName,
       loginImgUrl,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     },
   });
 
+  return loginInfo;
+}
+
+export async function getLoginInfo() {
+  const loginInfo = await prisma.appSettings.upsert({
+    where: { id: "DEFAULT" },
+    update: {},
+    create: {
+      id: "DEFAULT",
+      loginName: "Welcome Back",
+      loginImgUrl: "",
+      oAuthEnabled: false,
+      landingEnabled: false,
+      landingDashboardId: null,
+    },
+    include: {
+      landingDashboard: true,
+    },
+  });
   return loginInfo;
 }
 
@@ -68,20 +89,6 @@ export async function deleteNotification(id: string) {
   });
 }
 
-export async function getLoginInfo() {
-  const loginInfo = await prisma.appSettings.upsert({
-    where: { id: "DEFAULT" },
-    update: {},
-    create: {
-      id: "DEFAULT",
-      loginName: "Welcome Back",
-      loginImgUrl: "",
-    },
-  });
-
-  return loginInfo;
-}
-
 export async function updateUserInfo(
   userId: string,
   firstName?: string,
@@ -108,12 +115,25 @@ export async function updateUserInfo(
 }
 
 export async function createDashboard(
-  userId: string | null,
+  userId: string,
   visibility: string[],
   permissions: string[],
   name: string,
-  description: string
+  description: string,
+  connectUser: boolean
 ) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isAdmin: true },
+  });
+
+  const restrictedVisibilities = ['GLOBAL', 'LANDING'];
+  const isRestricted = visibility.some(v => restrictedVisibilities.includes(v));
+  
+  if (isRestricted && (!user || !Boolean(user.isAdmin))) {
+    throw new Error('Only admin users can create GLOBAL or LANDING dashboards.');
+  }
+
   const data: any = {
     name,
     description,
@@ -121,17 +141,65 @@ export async function createDashboard(
     permissions,
   };
 
-  if (userId) {
-    data.user = { connect: { id: userId } };
+  if (connectUser) {
+    data.userId = userId;
   }
 
   const dashboard = await prisma.dashboard.create({ data });
   return dashboard;
 }
 
-export async function getDashboards(){
+export async function getPublicDashboards(){
   const dashboard = await prisma.dashboard.findMany({
     orderBy: { createdAt: 'desc' },
+    where: {
+      userId: null,
+      visibility: {
+        has: 'PUBLIC',
+      },
+    }
+  });
+
+  return dashboard;
+}
+
+export async function getPrivateDashboards( userId: string ){
+  const dashboard = await prisma.dashboard.findMany({
+    orderBy: { createdAt: 'desc' },
+    where: {
+      userId: userId,
+      visibility: {
+        has: 'PRIVATE',
+      },
+    }
+  });
+
+  return dashboard;
+}
+
+export async function getGlobalDashboards(){
+  const dashboard = await prisma.dashboard.findMany({
+    orderBy: { createdAt: 'desc' },
+    where: {
+      userId: null,
+      visibility: {
+        has: 'GLOBAL',
+      },
+    }
+  });
+
+  return dashboard;
+}
+
+export async function getLandingDashboards(){
+  const dashboard = await prisma.dashboard.findMany({
+    orderBy: { createdAt: 'desc' },
+    where: {
+      userId: null,
+      visibility: {
+        has: 'LANDING',
+      },
+    }
   });
 
   return dashboard;
@@ -179,4 +247,20 @@ export async function deleteDashboard(dashboardId: string) {
     where: { id: dashboardId },
   });
   return dashboard;
+}
+
+export async function updateLandingSettings({
+  landingEnabled,
+  selectedLandingId,
+}: {
+  landingEnabled: boolean;
+  selectedLandingId: string | null;
+}) {
+  return prisma.appSettings.update({
+    where: { id: "DEFAULT" },
+    data: {
+      landingEnabled,
+      landingDashboardId: selectedLandingId
+    }
+  })
 }

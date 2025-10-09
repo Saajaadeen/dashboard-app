@@ -1,99 +1,126 @@
-import { Link } from "react-router";
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
+import { Form, Link, useActionData } from "react-router";
 
-type Visibility = "GLOBAL" | "PRIVATE" | "PUBLIC";
-type Permissions = "READ" | "WRITE" | "DELETE";
+type Visibility = "GLOBAL" | "PRIVATE" | "PUBLIC" | "LANDING";
+type Permission = "READ" | "WRITE" | "DELETE";
+
+interface DashboardEditModalProps {
+  isAdmin?: boolean;
+  userId: string;
+  dashboard: any;
+  dashboardId?: string;
+}
+
+const VISIBILITY_CONFIG = {
+  GLOBAL: {
+    label: "Global",
+    tooltip: "Visible to all users (admin only)",
+    lockedPermissions: ["READ"] as Permission[],
+    disabledPermissions: [] as Permission[],
+  },
+  PRIVATE: {
+    label: "Private",
+    tooltip: "Only visible to you",
+    lockedPermissions: ["READ", "WRITE", "DELETE"] as Permission[],
+    disabledPermissions: [] as Permission[],
+  },
+  PUBLIC: {
+    label: "Public",
+    tooltip: "Visible to users with shared access",
+    lockedPermissions: ["READ"] as Permission[],
+    disabledPermissions: [] as Permission[],
+  },
+  LANDING: {
+    label: "Landing",
+    tooltip: "Landing page dashboard — admin only",
+    lockedPermissions: ["READ"] as Permission[],
+    disabledPermissions: ["DELETE"] as Permission[],
+  },
+} as const;
+
+const PERMISSION_CONFIG = {
+  READ: "View dashboard content and data",
+  WRITE: "Create and modify dashboard items",
+  DELETE: "Remove dashboards and their content",
+} as const;
 
 export default function DashboardEditModal({
-  dashboard,
-  dashboardId,
   isAdmin = false,
   userId,
-}: any) {
-  if (!dashboard) return null;
-
-  const allVisibility: Visibility[] = isAdmin
-    ? ["GLOBAL", "PRIVATE", "PUBLIC"]
-    : ["PRIVATE", "PUBLIC"];
-
-  const allPermissions: Permissions[] = ["READ", "WRITE", "DELETE"];
-
+  dashboard,
+  dashboardId,
+}: DashboardEditModalProps) {
+  const actionData = useActionData<{ error?: string }>();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const defaultPermissions = (visibility: Visibility): Permissions[] => {
-    switch (visibility) {
-      case "PRIVATE":
-        return ["READ", "WRITE", "DELETE"];
-      case "GLOBAL":
-        return ["READ", "WRITE"];
-      case "PUBLIC":
-        // Ensure READ is always included
-        return dashboard.permissions?.length
-          ? dashboard.permissions.includes("READ")
-            ? dashboard.permissions
-            : ["READ", ...dashboard.permissions]
-          : ["READ"];
-    }
-  };
+  const availableVisibilities: Visibility[] = isAdmin
+    ? ["GLOBAL", "PRIVATE", "PUBLIC", "LANDING"]
+    : ["PRIVATE", "PUBLIC"];
+
+  const allPermissions: Permission[] = ["READ", "WRITE", "DELETE"];
+
+  const originalVisibility = useRef((dashboard?.visibility?.[0] ?? "PRIVATE") as Visibility);
+  const originalPermissions = useRef((dashboard?.permissions ?? ["READ", "WRITE", "DELETE"]) as Permission[]);
 
   const [form, setForm] = useState({
-    name: dashboard.name,
-    description: dashboard.description || "",
-    visibility: dashboard.visibility[0] as Visibility,
-    permissions: defaultPermissions(dashboard.visibility[0] as Visibility),
+    name: dashboard?.name ?? "",
+    description: dashboard?.description ?? "",
+    visibility: originalVisibility.current,
+    permissions: originalPermissions.current,
   });
 
-  useEffect(() => {
-    setForm((prev) => ({
-      ...prev,
-      permissions: defaultPermissions(prev.visibility),
-    }));
-  }, [form.visibility]);
+  const currentConfig = VISIBILITY_CONFIG[form.visibility];
 
-  const setVisibility = (vis: Visibility) => {
-    if (vis === "GLOBAL" && !isAdmin) return;
+  const updateForm = (key: keyof typeof form, value: any) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleVisibilityChange = (vis: Visibility) => {
+    if ((vis === "GLOBAL" || vis === "LANDING") && !isAdmin) return;
+    
+    const newConfig = VISIBILITY_CONFIG[vis];
+    const newPermissions = vis === originalVisibility.current 
+      ? [...originalPermissions.current]
+      : [...newConfig.lockedPermissions];
+    
     setForm((prev) => ({
       ...prev,
       visibility: vis,
-      permissions: defaultPermissions(vis),
+      permissions: newPermissions,
     }));
   };
 
-  const togglePermission = (perm: Permissions) => {
-    const { visibility } = form;
+  const getPermissionState = (perm: Permission) => {
+    const { lockedPermissions, disabledPermissions } = currentConfig;
+    const isActive = form.permissions.includes(perm);
+    const isLocked = lockedPermissions.includes(perm);
+    const isDisabled = disabledPermissions.includes(perm);
+    const isToggleable = !isLocked && !isDisabled;
 
-    if (visibility === "PRIVATE") {
-      if (["READ", "WRITE", "DELETE"].includes(perm)) return;
-    }
-
-    if (visibility === "GLOBAL") {
-      if (["READ", "WRITE"].includes(perm)) return;
-      if (!isAdmin) return;
-    }
-
-    if (visibility === "PUBLIC") {
-      if (perm === "READ") return;
-    }
-
-    setForm((prev) => ({
-      ...prev,
-      permissions: prev.permissions.includes(perm)
-        ? prev.permissions.filter((p) => p !== perm)
-        : [...prev.permissions, perm],
-    }));
+    return { isActive, isLocked, isDisabled, isToggleable };
   };
 
-  const visibilityTooltips: Record<Visibility, string> = {
-    GLOBAL: "Visible to all users (admin only)",
-    PRIVATE: "Only visible to you",
-    PUBLIC: "Visible to users with shared access",
+  const togglePermission = (perm: Permission) => {
+    const { isToggleable, isActive } = getPermissionState(perm);
+    if (!isToggleable) return;
+
+    updateForm(
+      "permissions",
+      isActive
+        ? form.permissions.filter((p) => p !== perm)
+        : [...form.permissions, perm]
+    );
   };
 
-  const permissionTooltips: Record<Permissions, string> = {
-    READ: "View dashboard content and data",
-    WRITE: "Create and modify dashboard items",
-    DELETE: "Remove dashboards and their content",
+  const getPermissionStyle = (perm: Permission) => {
+    const { isActive, isLocked, isDisabled, isToggleable } = getPermissionState(perm);
+
+    if (isDisabled) return "bg-gray-900/40 text-gray-600 border border-gray-700 cursor-not-allowed";
+    if (isLocked) return "bg-blue-700/80 text-blue-200 border border-blue-600 cursor-not-allowed";
+    if (isActive) return "bg-blue-600 text-white hover:bg-blue-500";
+    return "bg-gray-800/60 text-gray-400 hover:bg-gray-700";
   };
+
+  const shouldIncludeUserId = form.visibility === "PRIVATE";
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
@@ -102,114 +129,88 @@ export default function DashboardEditModal({
           to="/dashboard"
           className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-700 text-2xl"
         >
-          <p className="text-3xl">✕</p>
+          ✕
         </Link>
 
         <h3 className="text-white text-2xl font-bold mb-6">Edit Dashboard</h3>
 
-        <form
-          action={`/dashboard/${dashboardId}/edit`}
-          method="post"
-          className="space-y-5"
-        >
+        {actionData?.error && (
+          <div className="mb-4 p-4 bg-red-900/50 border border-red-700 rounded-xl text-red-200 text-sm">
+            {actionData.error}
+          </div>
+        )}
+
+        <Form method="post" className="space-y-5">
           <input type="hidden" name="intent" value="update" />
           <input type="hidden" name="dashboardId" value={dashboardId} />
-          <input
-            type="hidden"
-            name="visibility"
-            value={JSON.stringify([form.visibility])}
-          />
-          <input
-            type="hidden"
-            name="permissions"
-            value={form.permissions.join(",")}
-          />
-
-          {form.visibility === "PRIVATE" && (
-            <input type="hidden" name="userId" value={userId} />
-          )}
+          <input type="hidden" name="visibility" value={JSON.stringify([form.visibility])} />
+          <input type="hidden" name="permissions" value={form.permissions.join(",")} />
+          {shouldIncludeUserId && <input type="hidden" name="userId" value={userId} />}
 
           <div>
-            <label className="block text-gray-300 text-sm font-medium mb-2">
-              Dashboard Name
-            </label>
+            <label className="block text-gray-300 text-sm font-medium mb-2">Name</label>
             <input
               type="text"
               name="name"
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              onChange={(e) => updateForm("name", e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
             />
           </div>
 
           <div>
-            <label className="block text-gray-300 text-sm font-medium mb-2">
-              Description
-            </label>
+            <label className="block text-gray-300 text-sm font-medium mb-2">Description</label>
             <textarea
               name="description"
               value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              onChange={(e) => updateForm("description", e.target.value)}
               rows={3}
-              className="w-full px-4 py-3 rounded-xl bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+              className="w-full px-4 py-3 rounded-xl bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
 
           <div>
-            <label className="block text-gray-300 text-sm font-medium mb-2">
-              Visibility
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {allVisibility.map((v) => (
+            <label className="block text-gray-300 text-sm font-medium mb-2">Visibility</label>
+            <div
+              className={`grid gap-2 ${
+                availableVisibilities.length === 4 ? "grid-cols-4" : "grid-cols-2"
+              }`}
+            >
+              {availableVisibilities.map((vis) => (
                 <button
-                  key={v}
+                  key={vis}
                   type="button"
-                  onClick={() => setVisibility(v)}
-                  title={visibilityTooltips[v]}
-                  className={`px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-700 transition-all
-                    ${
-                      form.visibility === v
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-800/50 text-gray-400 hover:bg-gray-700"
-                    }`}
+                  onClick={() => handleVisibilityChange(vis)}
+                  title={VISIBILITY_CONFIG[vis].tooltip}
+                  className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    form.visibility === vis
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
+                      : "bg-gray-800/50 text-gray-400 hover:bg-gray-700 border border-gray-700"
+                  }`}
                 >
-                  {v}
+                  {VISIBILITY_CONFIG[vis].label}
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <label className="block text-gray-300 text-sm font-medium mb-2">
-              Permissions
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {allPermissions.map((p) => {
-                const locked =
-                  (form.visibility === "PRIVATE" &&
-                    ["READ", "WRITE", "DELETE"].includes(p)) ||
-                  (form.visibility === "GLOBAL" &&
-                    ["READ", "WRITE"].includes(p)) ||
-                  (form.visibility === "PUBLIC" && p === "READ");
-
-                return (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => !locked && togglePermission(p)}
-                    title={permissionTooltips[p]}
-                    className={`px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-700 transition-all
-                      ${
-                        form.permissions.includes(p)
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-800/50 text-gray-400 hover:bg-gray-700"
-                      }
-                      ${locked ? "opacity-60 cursor-not-allowed" : ""}`}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
+            <label className="block text-gray-300 text-sm font-medium mb-2">Permissions</label>
+            <div className="grid grid-cols-3 gap-2">
+              {allPermissions.map((perm) => (
+                <button
+                  key={perm}
+                  type="button"
+                  onClick={() => togglePermission(perm)}
+                  title={PERMISSION_CONFIG[perm]}
+                  className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${getPermissionStyle(
+                    perm
+                  )}`}
+                >
+                  {perm}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -227,49 +228,34 @@ export default function DashboardEditModal({
               Save Changes
             </button>
           </div>
-        </form>
+        </Form>
 
-        <form
-          action={`/dashboard/${dashboardId}/edit`}
-          method="post"
-          className="mt-6 pt-4 border-t border-gray-700"
-        >
+        <Form method="post" className="mt-6 space-y-3">
           <input type="hidden" name="intent" value="delete" />
           <input type="hidden" name="dashboardId" value={dashboardId} />
 
-          <h4 className="text-red-500 text-sm font-semibold mb-2">
-            Delete Dashboard
-          </h4>
-          <p className="text-gray-400 text-xs mb-3">
-            This action cannot be undone. All dashboard data will be permanently removed.
-          </p>
-
-          <div className="flex items-center mb-3">
+          <label className="flex items-center gap-2 text-sm text-gray-300">
             <input
               type="checkbox"
-              id="confirmDelete"
-              className="mr-2"
               checked={confirmDelete}
               onChange={(e) => setConfirmDelete(e.target.checked)}
+              className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
             />
-            <label htmlFor="confirmDelete" className="text-gray-300 text-sm">
-              I understand the consequences
-            </label>
-          </div>
+            I understand this will permanently delete this dashboard
+          </label>
 
           <button
             type="submit"
             disabled={!confirmDelete}
-            className={`w-full px-5 py-3 rounded-xl text-white font-medium shadow-lg transition-all
-              ${
-                confirmDelete
-                  ? "bg-red-600 hover:bg-red-500 shadow-red-500/30 cursor-pointer"
-                  : "bg-red-400 cursor-not-allowed opacity-60"
-              }`}
+            className={`w-full px-5 py-3 rounded-xl text-white font-medium shadow-lg transition-all ${
+              confirmDelete
+                ? "bg-red-700 hover:bg-red-600 shadow-red-500/30"
+                : "bg-gray-700 text-gray-400 cursor-not-allowed"
+            }`}
           >
             Delete Dashboard
           </button>
-        </form>
+        </Form>
       </div>
     </div>
   );

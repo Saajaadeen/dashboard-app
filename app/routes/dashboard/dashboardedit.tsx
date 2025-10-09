@@ -1,11 +1,19 @@
 import {
-    redirect,
+  redirect,
   useLoaderData,
   useParams,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
-import { getUserDetails, getDashboards, updateDashboard, deleteDashboard } from "server/dashboard.queries.server";
+import {
+  getUserDetails,
+  getPrivateDashboards,
+  updateDashboard,
+  deleteDashboard,
+  getPublicDashboards,
+  getGlobalDashboards,
+  getLandingDashboards,
+} from "server/dashboard.queries.server";
 import { getUserId, requireUserId } from "server/session.server";
 import DashboardEditModal from "~/components/modals/DashboardEditModal";
 
@@ -13,9 +21,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
   await requireUserId(request);
   const userId = await getUserId(request);
   const user = await getUserDetails(userId);
-  const dashboardInfo = await getDashboards();
 
-  return { user, dashboardInfo };
+  const privateDashboards = await getPrivateDashboards(userId);
+  const publicDashboards = await getPublicDashboards();
+  const globalDashboards = await getGlobalDashboards();
+
+  let landingDashboards: any[] = [];
+  if (user?.isAdmin) {
+    landingDashboards = await getLandingDashboards();
+  }
+
+  const allDashboards = [
+    ...privateDashboards,
+    ...publicDashboards,
+    ...globalDashboards,
+    ...landingDashboards,
+  ];
+
+  return { user, allDashboards };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -47,13 +70,18 @@ export async function action({ request }: ActionFunctionArgs) {
   return redirect("/dashboard");
 }
 
-
-
 export default function DashboardEdit() {
-  const { user, dashboardInfo } = useLoaderData<typeof loader>();
+  const { user, allDashboards } = useLoaderData<typeof loader>();
   const { id } = useParams();
 
-  const selectedDashboard = dashboardInfo.find((d) => d.id === id);
+  const selectedDashboard = allDashboards.find((d) => d.id === id);
 
-  return <DashboardEditModal isAdmin={user?.isAdmin} userId={user?.id} dashboard={selectedDashboard} dashboardId={id} />;
+  return (
+    <DashboardEditModal
+      isAdmin={user?.isAdmin}
+      userId={user?.id}
+      dashboard={selectedDashboard}
+      dashboardId={id}
+    />
+  );
 }

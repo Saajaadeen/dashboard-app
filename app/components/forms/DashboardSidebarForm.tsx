@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { LockIcon } from "../icons/LockIcon";
 import { EyeOpenIcon } from "../icons/EyeOpenIcon";
 import { GlobeIcon } from "../icons/GlobeIcon";
+import { RocketIcon } from "../icons/RocketIcon";
 
 type Dashboard = {
   id: string;
@@ -13,11 +14,21 @@ type Dashboard = {
   createdAt: Date;
 };
 
-export default function DashboardSidebarForm({ userDashboards }: { userDashboards: Dashboard[] }) {
+export default function DashboardSidebarForm({ 
+  user,
+  privateBoard, 
+  publicBoard, 
+  globalBoard, 
+  landingBoard }: 
+    { privateBoard: Dashboard[], 
+      publicBoard: Dashboard[], 
+      globalBoard: Dashboard[], 
+      landingBoard: Dashboard[] 
+    }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const hasInitialized = useRef(false);
   
-  const sortedDashboards = [...userDashboards].sort(
+  const sortedDashboards = [...privateBoard, ...publicBoard, ...globalBoard, ...landingBoard].sort(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   );
 
@@ -25,6 +36,7 @@ export default function DashboardSidebarForm({ userDashboards }: { userDashboard
     PRIVATE: [],
     GLOBAL: [],
     PUBLIC: [],
+    LANDING: [],
   };
 
   sortedDashboards.forEach((d) => {
@@ -34,7 +46,6 @@ export default function DashboardSidebarForm({ userDashboards }: { userDashboard
     }
   });
 
-  // Auto-select first dashboard only on initial render
   useEffect(() => {
     if (!hasInitialized.current && sortedDashboards.length > 0) {
       const currentPanel = searchParams.get("panel");
@@ -62,6 +73,10 @@ export default function DashboardSidebarForm({ userDashboards }: { userDashboard
       case "GLOBAL":
         return (
           <GlobeIcon className="w-6 h-6" />
+        );
+      case "LANDING":
+        return (
+          <RocketIcon className="w-6 h-6" />
         );
       default:
         return null;
@@ -137,6 +152,7 @@ export default function DashboardSidebarForm({ userDashboards }: { userDashboard
         {renderGroup("Private", groupedDashboards.PRIVATE)}
         {renderGroup("Global", groupedDashboards.GLOBAL)}
         {renderGroup("Public", groupedDashboards.PUBLIC)}
+        {user?.isAdmin && (renderGroup("Landing", groupedDashboards.LANDING))}
       </div>
     </aside>
   );
