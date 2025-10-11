@@ -79,19 +79,16 @@ Visit `http://localhost:3000` to see your app!
 
 ### Database Management
 ```bash
-# Create a new migration
 npx prisma migrate dev --name migration_name
 
-# Reset database
 npx prisma migrate reset
 
-# Open Prisma Studio
 npx prisma studio
 ```
 
 ### Type Generation
 ```bash
-# Generate Prisma Client types
+
 npx prisma generate
 ```
 

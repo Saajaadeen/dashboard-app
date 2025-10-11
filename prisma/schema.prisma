@@ -51,6 +51,12 @@ model Card {
   dashboard           Dashboard     @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
+  cardGroup           String
+  size                String
+  position            Int?
+
+  @@index([dashboardId])
+  @@index([cardGroup])
 }
 
 model AppSettings {

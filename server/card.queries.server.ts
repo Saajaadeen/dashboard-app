@@ -5,6 +5,9 @@ export async function createCard(
   url: string,
   imageUrl: string,
   dashboardId: string,
+  cardGroup: string,
+  position: number,
+  size: string,
 ) {
   const card = await prisma.card.create({
     data: {
@@ -12,6 +15,9 @@ export async function createCard(
       url,
       imageUrl,
       dashboardId,
+      cardGroup,
+      position,
+      size,
     },
   });
   return card;
@@ -24,6 +30,19 @@ export async function getCards(dashboardId: string) {
     
     return cards;
 }
+
+export async function getCardInfo(dashboardId: string) {
+    const cards = await prisma.card.findMany({
+        where: { dashboardId },
+        select: {
+          cardGroup: true,
+          position: true,
+        }
+    });
+    
+    return cards;
+}
+
 
 export async function getCard(cardId: string | undefined) {
   if (!cardId) return null;
@@ -40,6 +59,9 @@ export async function updateCard(
   name: string,
   url: string,
   imageUrl: string,
+  cardGroup: string,
+  position: number,
+  size: string,
 ) {
   const card = await prisma.card.update({
     where: { id: cardId },
@@ -47,6 +69,9 @@ export async function updateCard(
       name,
       url,
       imageUrl,
+      cardGroup,
+      position,
+      size,
     },
   });
   
